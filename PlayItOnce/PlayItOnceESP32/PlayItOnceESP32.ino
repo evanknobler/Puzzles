@@ -25,6 +25,8 @@ int currentStep = 0;
 static uint8_t gHue = 0;
 const char* AP_NAME = "Play It Once Setup";
 
+String clientId = "play-it-once-" + String(ESP.getChipRevision()) + "-" + String(random(0xffff), HEX);
+
 #define LEDS_PIN 2
 CRGB leds[numSteps];
 #define LED_STRIP_PIN 18
@@ -160,7 +162,7 @@ void setup() {
 
   unsigned long startAttempt = millis();
   while (!client.connected() && millis() - startAttempt < 5000) {
-    if (client.connect("esp32-client")) {
+    if (client.connect(clientId.c_str())) {
       client.subscribe(mqtt_sub_topic);
       mqttConnected = true;
     } else delay(500);
@@ -170,7 +172,7 @@ void setup() {
     wm.startConfigPortal(AP_NAME);
     startAttempt = millis();
     while (!client.connected() && millis() - startAttempt < 5000) {
-      if (client.connect("esp32-client")) {
+      if (client.connect(clientId.c_str())) {
         client.subscribe(mqtt_sub_topic);
         mqttConnected = true;
       } else delay(500);
@@ -180,7 +182,7 @@ void setup() {
 
 void loop() {
   if (mqttConnected && !client.connected()) {
-    client.connect("esp32-client");
+    client.connect(clientId.c_str());
     client.subscribe(mqtt_sub_topic);
   }
   if (mqttConnected) client.loop();

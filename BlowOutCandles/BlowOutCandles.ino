@@ -32,6 +32,8 @@ bool isLit[numCandles];
 int mistakesMade = 0;
 const char* AP_NAME = "Blow Out Candles Setup";
 
+String clientId = "blow-out-candles-" + String(ESP.getChipRevision()) + "-" + String(random(0xffff), HEX);
+
 void saveConfigCallback() {
   shouldSaveConfig = true;
 }
@@ -120,7 +122,7 @@ void setup() {
 
   unsigned long startAttempt = millis();
   while (!client.connected() && millis() - startAttempt < 5000) {
-    if (client.connect("esp32-client")) {
+    if (client.connect(clientId.c_str())) {
       client.subscribe(mqtt_sub_topic);
       mqttConnected = true;
     } else delay(500);
@@ -130,7 +132,7 @@ void setup() {
     wm.startConfigPortal(AP_NAME);
     startAttempt = millis();
     while (!client.connected() && millis() - startAttempt < 5000) {
-      if (client.connect("esp32-client")) {
+      if (client.connect(clientId.c_str())) {
         client.subscribe(mqtt_sub_topic);
         mqttConnected = true;
       } else delay(500);
@@ -141,7 +143,7 @@ void setup() {
 void loop() {
   if (mqttConnected) {
     if (!client.connected()) {
-      client.connect("esp32-client");
+      client.connect(clientId.c_str());
       client.subscribe(mqtt_sub_topic);
     }
     client.loop();

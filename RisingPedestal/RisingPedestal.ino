@@ -18,6 +18,8 @@ char mqtt_pub_topic[40];
 
 const char* AP_NAME = "Rising Pedestal Setup";
 
+String clientId = "rising-pedestal-" + String(ESP.getChipRevision()) + "-" + String(random(0xffff), HEX);
+
 // Relay Outputs
 const byte relayPins[2] = {23, 22};
 
@@ -90,7 +92,7 @@ void setup() {
 
   unsigned long start = millis();
   while (!client.connected() && millis() - start < 5000) {
-    if (client.connect("esp32-client")) {
+    if (client.connect(clientId.c_str())) {
       client.subscribe(mqtt_sub_topic);
       mqttConnected = true;
     } else {
@@ -102,7 +104,7 @@ void setup() {
     wm.startConfigPortal(AP_NAME);
     start = millis();
     while (!client.connected() && millis() - start < 5000) {
-      if (client.connect("esp32-client")) {
+      if (client.connect(clientId.c_str())) {
         client.subscribe(mqtt_sub_topic);
         mqttConnected = true;
       } else {
@@ -115,7 +117,7 @@ void setup() {
 void loop() {
   if (mqttConnected) {
     if (!client.connected()) {
-      client.connect("esp32-client");
+      client.connect(clientId.c_str());
       client.subscribe(mqtt_sub_topic);
     }
     client.loop();

@@ -21,6 +21,8 @@ char mqtt_pub_topic[40];
 #define RELAY_PIN 32
 const char* AP_NAME = "Knife Puzzle Setup";
 
+String clientId = "knife-throwing-" + String(ESP.getChipRevision()) + "-" + String(random(0xffff), HEX);
+
 const byte sensorPins[NUM_SENSORS] = {21, 19, 18, 5};
 bool lastSensorState[NUM_SENSORS];
 
@@ -118,7 +120,7 @@ void setup() {
 
   unsigned long startAttempt = millis();
   while (!client.connected() && millis() - startAttempt < 5000) {
-    if (client.connect("esp32-client")) {
+    if (client.connect(clientId.c_str())) {
       client.subscribe(mqtt_sub_topic);
       mqttConnected = true;
     } else delay(500);
@@ -128,7 +130,7 @@ void setup() {
     wm.startConfigPortal(AP_NAME);
     startAttempt = millis();
     while (!client.connected() && millis() - startAttempt < 5000) {
-      if (client.connect("esp32-client")) {
+      if (client.connect(clientId.c_str())) {
         client.subscribe(mqtt_sub_topic);
         mqttConnected = true;
       } else delay(500);
@@ -139,7 +141,7 @@ void setup() {
 void loop() {
   if (mqttConnected) {
     if (!client.connected()) {
-      client.connect("esp32-client");
+      client.connect(clientId.c_str());
       client.subscribe(mqtt_sub_topic);
     }
     client.loop();

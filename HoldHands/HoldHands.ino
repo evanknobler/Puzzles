@@ -20,6 +20,8 @@ char mqtt_pub_topic[40];
 
 const char* AP_NAME = "Hold Hands Setup";
 
+String clientId = "hold-hands-" + String(ESP.getChipRevision()) + "-" + String(random(0xffff), HEX);
+
 enum DeviceState { INITIALISING, CIRCUIT_OPEN, CIRCUIT_CLOSED };
 DeviceState deviceState = INITIALISING;
 
@@ -69,7 +71,7 @@ void setup() {
 
   unsigned long startAttempt = millis();
   while (!client.connected() && millis() - startAttempt < 5000) {
-    if (client.connect("esp32-client")) mqttConnected = true;
+    if (client.connect(clientId)) mqttConnected = true;
     else delay(500);
   }
   if (!mqttConnected) {
@@ -77,7 +79,7 @@ void setup() {
     wm.startConfigPortal(AP_NAME);
     startAttempt = millis();
     while (!client.connected() && millis() - startAttempt < 5000) {
-      if (client.connect("esp32-client")) mqttConnected = true;
+      if (client.connect(clientId)) mqttConnected = true;
       else delay(500);
     }
   }
