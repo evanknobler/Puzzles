@@ -53,6 +53,90 @@ void callback(char* topic, byte* payload, unsigned int length) {
   }
 }
 
+void setupNetworking() {
+  // Step 1: Initialize preferences
+  prefs.begin("settings", false);
+  String defaultServer = prefs.getString("mqtt_server", "192.168.0.100");
+  String defaultSub    = prefs.getString("mqtt_sub",    "puzzles/rising-pedestal/commands");
+  String defaultPub    = prefs.getString("mqtt_pub",    "puzzles/rising-pedestal/status");
+
+  // Step 2: Initialize WiFiManager parameters with stored values
+  custom_mqtt_server = new WiFiManagerParameter("server", "MQTT Server IP", defaultServer.c_str(), 40);
+  custom_sub_topic   = new WiFiManagerParameter("sub",    "Subscribe Topic", defaultSub.c_str(),    40);
+  custom_pub_topic   = new WiFiManagerParameter("pub",    "Publish Topic",   defaultPub.c_str(),    40);
+
+  WiFiManager wm;
+  wm.addParameter(custom_mqtt_server);
+  wm.addParameter(custom_sub_topic);
+  wm.addParameter(custom_pub_topic);
+
+  // Step 3: Start config portal or auto connect
+  wm.autoConnect(AP_NAME);
+
+  // Step 4: Extract updated values from portal and save to preferences
+  String newServer = custom_mqtt_server->getValue();
+  String newSub    = custom_sub_topic->getValue();
+  String newPub    = custom_pub_topic->getValue();
+
+  Serial.println("Saving MQTT config values...");
+  Serial.print("Server: "); Serial.println(newServer);
+  Serial.print("Sub: ");    Serial.println(newSub);
+  Serial.print("Pub: ");    Serial.println(newPub);
+
+  prefs.putString("mqtt_server", newServer);
+  prefs.putString("mqtt_sub",    newSub);
+  prefs.putString("mqtt_pub",    newPub);
+  prefs.end();
+
+  // Step 5: Convert to char arrays for PubSubClient
+  newServer.toCharArray(mqtt_server, sizeof(mqtt_server));
+  newSub.toCharArray(mqtt_sub_topic, sizeof(mqtt_sub_topic));
+  newPub.toCharArray(mqtt_pub_topic, sizeof(mqtt_pub_topic));
+
+  Serial.print("Final MQTT server being used: ");
+  Serial.println(mqtt_server);
+
+  // Step 6: MQTT setup
+  client.setServer(mqtt_server, 1883);
+  client.setCallback(callback);
+
+  unsigned long startAttempt = millis();
+  while (!client.connected() && millis() - startAttempt < 5000) {
+    Serial.print("Attempting MQTT connection to: ");
+    Serial.println(mqtt_server);
+    if (client.connect(clientId.c_str())) {
+      Serial.println("MQTT connected successfully!");
+      client.subscribe(mqtt_sub_topic);
+      mqttConnected = true;
+    } else {
+      Serial.print("MQTT connection failed, state: ");
+      Serial.println(client.state());
+      delay(500);
+    }
+  }
+
+  if (!mqttConnected) {
+    Serial.println("Initial MQTT connection failed. Resetting WiFiManager config...");
+    wm.resetSettings();
+    wm.startConfigPortal(AP_NAME);
+
+    startAttempt = millis();
+    while (!client.connected() && millis() - startAttempt < 5000) {
+      Serial.print("Attempting MQTT connection to: ");
+      Serial.println(mqtt_server);
+      if (client.connect(clientId.c_str())) {
+        Serial.println("MQTT connected successfully!");
+        client.subscribe(mqtt_sub_topic);
+        mqttConnected = true;
+      } else {
+        Serial.print("MQTT connection failed, state: ");
+        Serial.println(client.state());
+        delay(500);
+      }
+    }
+  }
+}
+
 void setup() {
   Serial.begin(115200);
   for (int i = 0; i < 2; i++) {
@@ -60,58 +144,7 @@ void setup() {
     digitalWrite(relayPins[i], LOW);
   }
 
-  prefs.begin("settings", false);
-  String srv = prefs.getString("mqtt_server", "192.168.0.100");
-  String sub = prefs.getString("mqtt_sub",    "puzzles/rising-pedestal/commands");
-  String pub = prefs.getString("mqtt_pub",    "puzzles/rising-pedestal/status");
-
-  custom_mqtt_server = new WiFiManagerParameter("server","MQTT Server IP",       srv.c_str(), 40);
-  custom_sub_topic   = new WiFiManagerParameter("sub",   "Subscribe Topic",      sub.c_str(), 40);
-  custom_pub_topic   = new WiFiManagerParameter("pub",   "Publish Topic",        pub.c_str(), 40);
-
-  WiFiManager wm;
-  wm.setSaveConfigCallback(saveConfigCallback);
-  wm.addParameter(custom_mqtt_server);
-  wm.addParameter(custom_sub_topic);
-  wm.addParameter(custom_pub_topic);
-  wm.autoConnect(AP_NAME);
-
-  if (shouldSaveConfig) {
-    prefs.putString("mqtt_server", custom_mqtt_server->getValue());
-    prefs.putString("mqtt_sub",    custom_sub_topic->getValue());
-    prefs.putString("mqtt_pub",    custom_pub_topic->getValue());
-  }
-  prefs.end();
-
-  String ip = custom_mqtt_server->getValue();   ip.toCharArray(mqtt_server,    sizeof(mqtt_server));
-  String st = custom_sub_topic->getValue();    st.toCharArray(mqtt_sub_topic, sizeof(mqtt_sub_topic));
-  String pt = custom_pub_topic->getValue();    pt.toCharArray(mqtt_pub_topic, sizeof(mqtt_pub_topic));
-
-  client.setServer(mqtt_server, 1883);
-  client.setCallback(callback);
-
-  unsigned long start = millis();
-  while (!client.connected() && millis() - start < 5000) {
-    if (client.connect(clientId.c_str())) {
-      client.subscribe(mqtt_sub_topic);
-      mqttConnected = true;
-    } else {
-      delay(500);
-    }
-  }
-  if (!mqttConnected) {
-    wm.resetSettings();
-    wm.startConfigPortal(AP_NAME);
-    start = millis();
-    while (!client.connected() && millis() - start < 5000) {
-      if (client.connect(clientId.c_str())) {
-        client.subscribe(mqtt_sub_topic);
-        mqttConnected = true;
-      } else {
-        delay(500);
-      }
-    }
-  }
+  setupNetworking();
 }
 
 void loop() {
