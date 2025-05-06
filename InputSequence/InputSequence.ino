@@ -59,49 +59,50 @@ void callback(char* topic, byte* payload, unsigned int length) {
 }
 
 void setupNetworking() {
-  // Step 1: Initialize preferences
   prefs.begin("settings", false);
-  String defaultServer = prefs.getString("mqtt_server", "192.168.0.100");
+  String defaultServer = prefs.getString("mqtt_server", "192.168.1.10");
   String defaultSub    = prefs.getString("mqtt_sub",    "puzzles/input-sequence/commands");
   String defaultPub    = prefs.getString("mqtt_pub",    "puzzles/input-sequence/status");
 
-  // Step 2: Initialize WiFiManager parameters with stored values
   custom_mqtt_server = new WiFiManagerParameter("server", "MQTT Server IP", defaultServer.c_str(), 40);
   custom_sub_topic   = new WiFiManagerParameter("sub",    "Subscribe Topic", defaultSub.c_str(),    40);
   custom_pub_topic   = new WiFiManagerParameter("pub",    "Publish Topic",   defaultPub.c_str(),    40);
 
   WiFiManager wm;
+  wm.setSaveConfigCallback(saveConfigCallback);
   wm.addParameter(custom_mqtt_server);
   wm.addParameter(custom_sub_topic);
   wm.addParameter(custom_pub_topic);
 
-  // Step 3: Start config portal or auto connect
   wm.autoConnect(AP_NAME);
 
-  // Step 4: Extract updated values from portal and save to preferences
-  String newServer = custom_mqtt_server->getValue();
-  String newSub    = custom_sub_topic->getValue();
-  String newPub    = custom_pub_topic->getValue();
+  if (shouldSaveConfig) {
+    String newServer = custom_mqtt_server->getValue();
+    String newSub    = custom_sub_topic->getValue();
+    String newPub    = custom_pub_topic->getValue();
 
-  Serial.println("Saving MQTT config values...");
-  Serial.print("Server: "); Serial.println(newServer);
-  Serial.print("Sub: ");    Serial.println(newSub);
-  Serial.print("Pub: ");    Serial.println(newPub);
+    Serial.println("Saving MQTT config values...");
+    Serial.print("Server: "); Serial.println(newServer);
+    Serial.print("Sub: ");    Serial.println(newSub);
+    Serial.print("Pub: ");    Serial.println(newPub);
 
-  prefs.putString("mqtt_server", newServer);
-  prefs.putString("mqtt_sub",    newSub);
-  prefs.putString("mqtt_pub",    newPub);
-  prefs.end();
+    prefs.putString("mqtt_server", newServer);
+    prefs.putString("mqtt_sub",    newSub);
+    prefs.putString("mqtt_pub",    newPub);
+    prefs.end();
 
-  // Step 5: Convert to char arrays for PubSubClient
-  newServer.toCharArray(mqtt_server, sizeof(mqtt_server));
-  newSub.toCharArray(mqtt_sub_topic, sizeof(mqtt_sub_topic));
-  newPub.toCharArray(mqtt_pub_topic, sizeof(mqtt_pub_topic));
+    newServer.toCharArray(mqtt_server, sizeof(mqtt_server));
+    newSub.toCharArray(mqtt_sub_topic, sizeof(mqtt_sub_topic));
+    newPub.toCharArray(mqtt_pub_topic, sizeof(mqtt_pub_topic));
+  } else {
+    defaultServer.toCharArray(mqtt_server, sizeof(mqtt_server));
+    defaultSub.toCharArray(mqtt_sub_topic, sizeof(mqtt_sub_topic));
+    defaultPub.toCharArray(mqtt_pub_topic, sizeof(mqtt_pub_topic));
+  }
 
   Serial.print("Final MQTT server being used: ");
   Serial.println(mqtt_server);
 
-  // Step 6: MQTT setup
   client.setServer(mqtt_server, 1883);
   client.setCallback(callback);
 
